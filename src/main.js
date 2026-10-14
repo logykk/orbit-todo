@@ -510,7 +510,7 @@ if (renderer) {
       const urgent = isUrgent(task);
       const color = task.completed ? 0xb4ffa7 : urgent ? 0xff354f : [0xbca5ff, 0x8bd7ff, 0xffc2df, 0xffd29a][i % 5];
       const satellite = new THREE.Group();
-      satellite.scale.setScalar(0.1);
+      satellite.scale.setScalar(0.5);
       satellite.userData = { angle, radius, speed: .000006, phase: i * 2.3, urgent, color, taskId: task.id };
       const body = createMissionBody(i % 5, color, task.id, task.completed);
       if (urgent) addAngryFace(body, task.id);
@@ -647,7 +647,7 @@ if (renderer) {
         label.classList.toggle('selected', selectedId === data.taskId);
       }
       const angryPulse = data.urgent && !reducedMotion ? 1 + Math.sin(time * .018) * .13 : 1;
-      satellite.scale.setScalar(.1 * (hovered && satellite.children[0].children.includes(hovered) ? 1.3 : 1) * angryPulse);
+      satellite.scale.setScalar(.5 * (hovered && satellite.children[0].children.includes(hovered) ? 1.3 : 1) * angryPulse);
     }
     for (let i = laserShots.length - 1; i >= 0; i--) {
       const shot = laserShots[i];
