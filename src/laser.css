@@ -1,0 +1,1 @@
+.laser-trace{position:fixed;z-index:9;height:2px;transform-origin:left center;pointer-events:none;border-radius:999px;background:linear-gradient(90deg,#a6ffe6,#f0fff8 60%,#80ffbc);box-shadow:0 0 4px 1px #b6ffe8,0 0 12px 3px #56ffb9,0 0 30px 7px #38ffb64d;mix-blend-mode:screen}@media(prefers-reduced-motion:reduce){.laser-trace{display:none!important}}
