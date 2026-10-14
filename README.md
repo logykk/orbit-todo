@@ -26,6 +26,14 @@ npm run build
 npm run preview
 ```
 
+## Zenith deployment
+
+The [image workflow](.github/workflows/publish-image.yml) builds this app on GitHub Actions, publishes it to `ghcr.io/logykk/orbit-todo`, then commits the exact image digest into [`zenith-compose.yml`](zenith-compose.yml). Push application changes to `main` or run the workflow manually. The `:bootstrap` image in Compose is replaced after the first successful run; do not publish the bootstrap reference.
+
+Set the GHCR package to **public** so Zenith can pull the pinned image without credentials. For a Zenith CLI test preview, use a temporary Compose variant with `build: .` because the local preview checker requires an app built from the root Dockerfile; the checked-in Compose file is for the published image.
+
+Tasks live in each visitor’s browser local storage and are not synchronized between devices.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

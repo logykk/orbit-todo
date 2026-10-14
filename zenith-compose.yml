@@ -1,0 +1,16 @@
+x-zenith:
+  catalog:
+    name: Orbit Todo
+    description: A first-person 3D space todo app.
+    authors: [Logykk]
+    source: https://github.com/logykk/orbit-todo
+    license: MIT
+    tags: [productivity, todo, threejs]
+  expose:
+    - { service: web, port: 3000, web: true }
+
+services:
+  web:
+    image: ghcr.io/logykk/orbit-todo:bootstrap
+    ports:
+      - "3000:3000"

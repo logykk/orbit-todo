@@ -1,0 +1,70 @@
+name: Publish Orbit image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - nginx.conf
+      - .dockerignore
+      - index.html
+      - package.json
+      - package-lock.json
+      - public/**
+      - src/**
+      - .github/workflows/publish-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: orbit-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and publish
+        id: image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+      - name: Pin published image in Zenith Compose
+        env:
+          IMAGE_REPOSITORY: ghcr.io/${{ github.repository }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import re
+
+          path = Path('zenith-compose.yml')
+          content = path.read_text()
+          image = f"{os.environ['IMAGE_REPOSITORY'].lower()}@{os.environ['IMAGE_DIGEST']}"
+          updated, count = re.subn(r'(?m)^    image: ghcr\.io/logykk/orbit-todo(?:@sha256:[0-9a-f]{64}|:[^\s]+)$', f'    image: {image}', content)
+          if count != 1:
+              raise SystemExit('Expected exactly one Orbit image reference in zenith-compose.yml')
+          path.write_text(updated)
+          PY
+          if git diff --quiet -- zenith-compose.yml; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add zenith-compose.yml
+          git commit -m 'Pin Zenith image to published digest'
+          git push origin HEAD:main
