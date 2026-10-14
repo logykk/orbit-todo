@@ -11,6 +11,6 @@ x-zenith:
 
 services:
   web:
-    image: ghcr.io/logykk/orbit-todo:bootstrap
+    image: ghcr.io/logykk/orbit-todo@sha256:968bbdac9cd90b92195d7b7b86d048742906e90624e6b1f6092dbe9e051495fc
     ports:
       - "3000:3000"
