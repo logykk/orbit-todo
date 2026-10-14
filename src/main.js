@@ -27,7 +27,7 @@ let burst = () => {};
 let launchEffect = () => {};
 let syncMissionObjects = () => {};
 let explodeMission = () => {};
-let fireCompletionLaser = (_, onImpact) => onImpact();
+let fireMissionLaser = (_, __, onImpact) => onImpact();
 let restoreFlightFocus = () => {};
 let completingId = null;
 
@@ -106,24 +106,26 @@ function toggleTask(id) {
     return;
   }
   completingId = id;
-  fireCompletionLaser(id, () => {
+  fireMissionLaser(id, 'complete', () => {
     task.completed = true;
-    completingId = null;
     save();
-    render();
     showToast('Mission accomplished! You’re a star ✦');
+    setTimeout(() => { completingId = null; render(); }, 400);
   });
   restoreFlightFocus();
 }
 function deleteTask(id) {
-  if (completingId === id || !tasks.some((item) => item.id === id)) return;
-  explodeMission(id);
-  tasks = tasks.filter((item) => item.id !== id);
+  if (completingId || !tasks.some((item) => item.id === id)) return;
+  completingId = id;
   selectedId = null;
-  save();
   updateMissionPanel();
-  setTimeout(render, 950);
-  showToast('Mission removed from orbit');
+  fireMissionLaser(id, 'delete', () => {
+    explodeMission(id);
+    tasks = tasks.filter((item) => item.id !== id);
+    save();
+    showToast('Mission removed from orbit');
+    setTimeout(() => { completingId = null; render(); }, 950);
+  });
   restoreFlightFocus();
 }
 function openModal() {
@@ -278,8 +280,6 @@ if (renderer) {
   const explosions = [];
   const laserShots = [];
   const laserGeometry = new THREE.CylinderGeometry(.025, .038, 1, 10);
-  const laserCoreMaterial = new THREE.MeshBasicMaterial({ color: 0xb8ffe7, transparent: true, opacity: .95, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
-  const laserHaloMaterial = new THREE.MeshBasicMaterial({ color: 0x55ffad, transparent: true, opacity: .26, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
   const laserAxis = new THREE.Vector3(0, 1, 0);
   const laserStart = new THREE.Vector3();
   const laserEnd = new THREE.Vector3();
@@ -304,22 +304,23 @@ if (renderer) {
     }
   }
 
-  fireCompletionLaser = (id, onImpact) => {
+  fireMissionLaser = (id, kind, onImpact) => {
     const satellite = missionLayer.children.find((item) => item.userData.taskId === id);
     if (!satellite || reducedMotion || !satellite.visible) { onImpact(); return; }
+    const destructive = kind === 'delete';
     const beam = new THREE.Group();
-    const halo = new THREE.Mesh(laserGeometry, laserHaloMaterial);
+    const halo = new THREE.Mesh(laserGeometry, new THREE.MeshBasicMaterial({ color: destructive ? 0xff304d : 0x55ffad, transparent: true, opacity: .26, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
     halo.scale.set(2.3, 1, 2.3);
-    const core = new THREE.Mesh(laserGeometry, laserCoreMaterial);
+    const core = new THREE.Mesh(laserGeometry, new THREE.MeshBasicMaterial({ color: destructive ? 0xffc1c7 : 0xb8ffe7, transparent: true, opacity: .95, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
     beam.add(halo, core);
     scene.add(beam);
-    const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowMap, color: 0x83ffbf, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+    const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowMap, color: destructive ? 0xff314e : 0x83ffbf, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
     flash.scale.set(1.8, 1.8, 1);
     scene.add(flash);
     const trace = document.createElement('div');
-    trace.className = 'laser-trace';
+    trace.className = destructive ? 'laser-trace laser-trace-red' : 'laser-trace';
     document.body.append(trace);
-    laserShots.push({ id, satellite, beam, flash, trace, start: performance.now(), onImpact, impacted: false, end: new THREE.Vector3() });
+    laserShots.push({ satellite, beam, flash, trace, kind, start: performance.now(), onImpact, impacted: false, end: new THREE.Vector3() });
   };
 
   function setFlightMode(enabled) {
@@ -510,7 +511,7 @@ if (renderer) {
       const urgent = isUrgent(task);
       const color = task.completed ? 0xb4ffa7 : urgent ? 0xff354f : [0xbca5ff, 0x8bd7ff, 0xffc2df, 0xffd29a][i % 5];
       const satellite = new THREE.Group();
-      satellite.scale.setScalar(0.5);
+      satellite.scale.setScalar(1);
       satellite.userData = { angle, radius, speed: .000006, phase: i * 2.3, urgent, color, taskId: task.id };
       const body = createMissionBody(i % 5, color, task.id, task.completed);
       if (urgent) addAngryFace(body, task.id);
@@ -647,7 +648,7 @@ if (renderer) {
         label.classList.toggle('selected', selectedId === data.taskId);
       }
       const angryPulse = data.urgent && !reducedMotion ? 1 + Math.sin(time * .018) * .13 : 1;
-      satellite.scale.setScalar(.5 * (hovered && satellite.children[0].children.includes(hovered) ? 1.3 : 1) * angryPulse);
+      satellite.scale.setScalar((hovered && satellite.children[0].children.includes(hovered) ? 1.3 : 1) * angryPulse);
     }
     for (let i = laserShots.length - 1; i >= 0; i--) {
       const shot = laserShots[i];
@@ -683,11 +684,12 @@ if (renderer) {
       shot.flash.material.opacity = shot.impacted ? Math.max(0, 1 - (elapsed - 700) / 300) : 0;
       if (!shot.impacted && elapsed >= 700) {
         shot.impacted = true;
-        paintMissionGreen(shot.satellite);
+        if (shot.kind === 'complete') paintMissionGreen(shot.satellite);
         shot.onImpact();
       }
       if (elapsed >= 1050) {
         scene.remove(shot.beam, shot.flash);
+        for (const part of shot.beam.children) part.material.dispose();
         shot.flash.material.dispose();
         shot.trace.remove();
         laserShots.splice(i, 1);
